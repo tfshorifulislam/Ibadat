@@ -1,51 +1,50 @@
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import React from "react";
+import { StyleSheet, View, Pressable } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-const BottomMenu = () => {
-  const activeColor = "#16A34A";
-  const inactiveColor = "#9CA3AF";
+interface BottomMenuProps {
+  activeTab?: string;
+  onTabPress?: (tabName: string) => void;
+}
+
+const NAV_ITEMS = [
+  { id: "home", icon: "home-variant-outline", activeIcon: "home-variant" },
+  { id: "book", icon: "book-open-page-variant-outline", activeIcon: "book-open-page-variant" },
+  { id: "explore", icon: "compass-outline", activeIcon: "compass" },
+];
+
+const BottomMenu = ({ activeTab = "home", onTabPress }: BottomMenuProps) => {
+  // #003332 ডার্ক ব্যাকগ্রাউন্ডের সাথে মানানসই কালার:
+  const activeColor = "#34D399";   // Bright Emerald (ডার্ক ব্যাকগ্রাউন্ডে স্পষ্ট ফুটে উঠবে)
+  const inactiveColor = "#64748B"; // Soft Slate Gray
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.item}>
-        <MaterialCommunityIcons
-          name="home-variant"
-          size={28}
-          color={activeColor}
-        />
-      </TouchableOpacity>
+    <View style={styles.wrapper}>
+      <View style={styles.container}>
+        {NAV_ITEMS.map((item) => {
+          const isActive = activeTab === item.id;
 
-      <TouchableOpacity style={styles.item}>
-        <MaterialCommunityIcons
-          name="book-open-page-variant"
-          size={28}
-          color={inactiveColor}
-        />
-      </TouchableOpacity>
+          return (
+            <Pressable
+              key={item.id}
+              onPress={() => onTabPress && onTabPress(item.id)}
+              style={({ pressed }) => [
+                styles.item,
+                pressed && styles.pressed,
+              ]}
+            >
+              {/* Active Pill Highlight */}
+              {isActive && <View style={styles.activeIndicator} />}
 
-      <TouchableOpacity style={styles.item}>
-        <MaterialCommunityIcons
-          name="compass-outline"
-          size={28}
-          color={inactiveColor}
-        />
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.item}>
-        <MaterialCommunityIcons
-          name="counter"
-          size={28}
-          color={inactiveColor}
-        />
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.item}>
-        <MaterialCommunityIcons
-          name="account-circle-outline"
-          size={30}
-          color={inactiveColor}
-        />
-      </TouchableOpacity>
+              <MaterialCommunityIcons
+                name={(isActive ? item.activeIcon : item.icon) as any}
+                size={26}
+                color={isActive ? activeColor : inactiveColor}
+              />
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 };
@@ -53,36 +52,53 @@ const BottomMenu = () => {
 export default BottomMenu;
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     position: "absolute",
-    bottom: 20,
-    left: 20,
-    right: 20,
-
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  container: {
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
+    width: "100%",
+    backgroundColor: "#003332", // চাওয়া ব্যাকগ্রাউন্ড কালার
+    paddingVertical: 20,
+    paddingHorizontal: 8,
 
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 16,
-
-    borderRadius: 22,
-
-    shadowColor: "#000",
+    // ডার্ক মোডের জন্য হালকা শ্যাডো
+    shadowColor: "#000000",
     shadowOffset: {
       width: 0,
-      height: 6,
+      height: 8,
     },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.3,
     shadowRadius: 12,
+    elevation: 8,
 
-    elevation: 10,
+    // টপ বর্ডারে হালকা গ্লো লাইন
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
   },
-
   item: {
-    width: 50,
-    height: 50,
+    width: 48,
+    height: 48,
     justifyContent: "center",
     alignItems: "center",
+    position: "relative",
+  },
+  pressed: {
+    transform: [{ scale: 0.94 }],
+    opacity: 0.85,
+  },
+  activeIndicator: {
+    position: "absolute",
+    width: 44,
+    height: 44,
+    backgroundColor: "rgba(52, 211, 153, 0.12)", // এক্টিভ আইকনের চারপাশে সাবটেল অ্যাকসেন্ট গ্লো
+    borderRadius: 22,
+    zIndex: -1,
   },
 });
