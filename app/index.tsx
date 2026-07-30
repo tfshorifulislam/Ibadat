@@ -310,32 +310,41 @@ export default function Home() {
           <View>
             <Text style={styles.locationText}>
               <MaterialCommunityIcons name="map-marker-outline" size={16} color="#34D399" />
-              {" "}
-              {locationName}
+              {" "}{locationName}
             </Text>
             <Text style={styles.dateText}>{currentDateStr}</Text>
+          </View>
+          <View style={styles.iconButton}>
+            <MaterialCommunityIcons name="bell-outline" size={20} color="#FFFFFF" />
           </View>
         </View>
 
         {/* Main Prayer Hero Card */}
         <View style={styles.heroCard}>
+          {/* Current Prayer & Remaining Badge */}
           <View style={styles.heroHeader}>
-            <Text style={styles.nextPrayerLabel}>
-              CURRENT PRAYER: {currentPrayer.toUpperCase()}
-            </Text>
+            <View style={styles.currentPrayerGroup}>
+              <Text style={styles.currentPrayerLabel}>CURRENT PRAYER</Text>
+              <Text style={styles.currentPrayerValue}>{currentPrayer.toUpperCase()}</Text>
+            </View>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{remainingTime} Re:</Text>
+              <MaterialCommunityIcons name="timer-sand" size={12} color="#34D399" />
+              <Text style={styles.badgeText}>{remainingTime} Left</Text>
             </View>
           </View>
 
-          <Text style={[styles.nextPrayerLabel, { marginTop: 12 }]}>NEXT PRAYER</Text>
-          <Text style={[styles.prayerTitle, { marginTop: 2 }]}>{nextPrayer.name}</Text>
+          <View style={styles.heroDivider} />
+
+          {/* Next Prayer Details */}
+          <Text style={styles.nextPrayerLabel}>NEXT PRAYER</Text>
+          <Text style={styles.prayerTitle}>{nextPrayer.name}</Text>
           <Text style={styles.prayerTimeText}>
             {nextPrayer.time ? formatTimeDate(nextPrayer.time) : ""}
           </Text>
 
+          {/* Hero Footer */}
           <View style={styles.heroFooter}>
-            <MaterialCommunityIcons name="compass-rose" size={20} color="#34D399" />
+            <MaterialCommunityIcons name="compass-rose" size={18} color="#34D399" />
             <Text style={styles.qiblaText}>Qibla Direction: 268° W</Text>
           </View>
         </View>
@@ -348,44 +357,43 @@ export default function Home() {
             <View
               key={index}
               style={[
-                styles.prayerRow,
-                item.active && styles.activePrayerRow,
+                styles.prayerCard,
+                item.active && styles.activePrayerCard,
               ]}
             >
-              <View style={styles.prayerNameGroup}>
-                <MaterialCommunityIcons
-                  name="clock-time-four-outline"
-                  size={20}
-                  color={item.active ? "#34D399" : "#64748B"}
-                />
-                <Text
-                  style={[
-                    styles.prayerName,
-                    item.active && styles.activePrayerName,
-                  ]}
-                >
-                  {item.name}
-                </Text>
+              {/* Left Side: Icon & Prayer Name */}
+              <View style={styles.prayerInfoGroup}>
+                <View style={[styles.iconContainer, item.active && styles.activeIconContainer]}>
+                  <MaterialCommunityIcons
+                    name={item.active ? "bell-ring-outline" : "clock-time-four-outline"}
+                    size={18}
+                    color={item.active ? "#34D399" : "#64748B"}
+                  />
+                </View>
+
+                <View>
+                  <Text style={[styles.prayerName, item.active && styles.activePrayerName]}>
+                    {item.name}
+                  </Text>
+                  {item.active}
+                </View>
               </View>
 
-              <View style={{ alignItems: "flex-end" }}>
-                <Text
-                  style={[
-                    styles.prayerTime,
-                    item.active && styles.activePrayerTime,
-                  ]}
-                >
-                  Start: {item.startTime}
-                </Text>
-                <Text
-                  style={[
-                    styles.prayerTime,
-                    item.active && styles.activePrayerTime,
-                    { fontSize: 13, marginTop: 2 },
-                  ]}
-                >
-                  End: {item.endTime}
-                </Text>
+              {/* Right Side: Start & End Times */}
+              <View style={styles.timeGroup}>
+                <View style={[styles.timeBadge, item.active && styles.activeTimeBadge]}>
+                  <Text style={styles.timeLabel}>Start</Text>
+                  <Text style={[styles.timeValue, item.active && styles.activeTimeValue]}>
+                    {item.startTime}
+                  </Text>
+                </View>
+
+                <View style={[styles.timeBadge, item.active && styles.activeTimeBadge]}>
+                  <Text style={styles.timeLabel}>End</Text>
+                  <Text style={[styles.timeValue, item.active && styles.activeTimeValue]}>
+                    {item.endTime}
+                  </Text>
+                </View>
               </View>
             </View>
           ))}
@@ -396,20 +404,55 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: "#003332",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+
+  activePrayerCard: {
+    backgroundColor: "rgba(52, 211, 153, 0.10)",
+    borderWidth: 1,
+    borderColor: "#34D399",
+  },
+
+  loadingCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    padding: 30,
+    borderRadius: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(52, 211, 153, 0.15)",
+  },
+  loadingTitle: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  loadingSubtitle: {
+    color: "#94A3B8",
+    fontSize: 14,
+    textAlign: "center",
+  },
   safeArea: {
     flex: 1,
     backgroundColor: "#003332",
+    marginTop: 50,
   },
   container: {
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 100, // Bottom menu-র জায়গা রাখার জন্য
+    paddingTop: 16,
+    paddingBottom: 110,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   locationText: {
     color: "#34D399",
@@ -422,69 +465,99 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
+
+  // Hero Card Styles
   heroCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderRadius: 24,
     padding: 20,
     borderWidth: 1,
-    borderColor: "rgba(52, 211, 153, 0.15)",
-    marginBottom: 28,
+    borderColor: "rgba(52, 211, 153, 0.18)",
+    marginBottom: 24,
   },
   heroHeader: {
-    width: "100%",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  nextPrayerLabel: {
-    color: "#94A3B8",
-    fontSize: 12,
+  currentPrayerGroup: {
+    gap: 2,
+  },
+  currentPrayerLabel: {
+    color: "#64748B",
+    fontSize: 10,
     fontWeight: "700",
     letterSpacing: 1,
   },
+  currentPrayerValue: {
+    color: "#34D399",
+    fontSize: 14,
+    fontWeight: "700",
+  },
   badge: {
-    backgroundColor: "rgba(52, 211, 153, 0.15)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(52, 211, 153, 0.12)",
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(52, 211, 153, 0.2)",
   },
   badgeText: {
     color: "#34D399",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
+  },
+  heroDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    marginVertical: 14,
+  },
+  nextPrayerLabel: {
+    color: "#94A3B8",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
   },
   prayerTitle: {
     color: "#FFFFFF",
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: "bold",
-    marginTop: 12,
+    marginTop: 4,
   },
   prayerTimeText: {
     color: "#34D399",
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "600",
     marginTop: 2,
   },
   heroFooter: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 20,
-    paddingTop: 14,
+    marginTop: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
   },
   qiblaText: {
-    color: "#E2E8F0",
-    fontSize: 13,
-    marginLeft: 8,
+    color: "#CBD5E1",
+    fontSize: 12,
+    marginLeft: 6,
+    fontWeight: "500",
   },
+
+  // Schedule Section Styles
   scheduleSection: {
     gap: 10,
   },
@@ -492,85 +565,86 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "700",
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  prayerRow: {
+  prayerCard: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    backgroundColor: "rgba(255, 255, 255, 0.025)",
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.05)",
   },
-  activePrayerRow: {
-    backgroundColor: "rgba(52, 211, 153, 0.12)",
-    borderColor: "rgba(52, 211, 153, 0.3)",
-  },
-  prayerNameGroup: {
+
+  prayerInfoGroup: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    flex: 1,
+    marginRight: 10,
+  },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  activeIconContainer: {
+    backgroundColor: "rgba(52, 211, 153, 0.15)",
   },
   prayerName: {
     color: "#94A3B8",
-    fontSize: 16,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
   },
   activePrayerName: {
     color: "#FFFFFF",
+    fontSize: 16,
     fontWeight: "700",
   },
-  prayerTime: {
-    color: "#94A3B8",
-    fontSize: 15,
-    fontWeight: "500",
+
+  timeGroup: {
+    flexDirection: "row",
+    gap: 8,
+    flexShrink: 1,
+    justifyContent: "flex-end",
   },
-  activePrayerTime: {
+  timeBadge: {
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 60,
+    flexShrink: 1,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.04)",
+  },
+  activeTimeBadge: {
+    backgroundColor: "rgba(52, 211, 153, 0.12)",
+    borderColor: "rgba(52, 211, 153, 0.2)",
+  },
+  timeLabel: {
+    color: "#64748B",
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    marginBottom: 1,
+  },
+  timeValue: {
+    color: "#CBD5E1",
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  activeTimeValue: {
     color: "#34D399",
     fontWeight: "700",
   },
-
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F8FAFC",
-  },
-
-  loadingCard: {
-    width: "85%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    paddingVertical: 32,
-    paddingHorizontal: 24,
-    alignItems: "center",
-
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-
-  loadingTitle: {
-    marginTop: 20,
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-  },
-
-  loadingSubtitle: {
-    marginTop: 8,
-    fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 22,
-  },
-
 });
