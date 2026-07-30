@@ -1,23 +1,303 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
   View,
   ScrollView,
   SafeAreaView,
-  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+type Prayer = {
+  name: string;
+  startTime: string;
+  endTime: string;
+  active: boolean;
+  rawTime: Date;
+};
+
+// --- Helpers ---
+const getFormattedDateForApi = (date: Date) => {
+  const d = String(date.getDate()).padStart(2, "0");
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const y = date.getFullYear();
+  return `${d}-${m}-${y}`;
+};
+
+const formatTime12Hour = (timeStr: string) => {
+  // e.g. "14:30" or "04:08 (BST)"
+  const clean = timeStr.split(" ")[0];
+  const [hourStr, minStr] = clean.split(":");
+  let hour = parseInt(hourStr, 10);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12;
+  if (hour === 0) hour = 12;
+  return `${String(hour).padStart(2, "0")}:${minStr} ${ampm}`;
+};
+
+const formatTimeDate = (date: Date) => {
+  let h = date.getHours();
+  const m = String(date.getMinutes()).padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${String(h).padStart(2, "0")}:${m} ${ampm}`;
+};
+
+const parseTimeToDate = (timeStr: string, baseDate: Date) => {
+  const clean = timeStr.split(" ")[0];
+  const [h, m] = clean.split(":").map(Number);
+  const d = new Date(baseDate);
+  d.setHours(h, m, 0, 0);
+  return d;
+};
 
 export default function Home() {
-  const prayerTimes = [
-    { name: "Fajr", time: "04:30 AM", active: false },
-    { name: "Sunrise", time: "05:45 AM", active: false },
-    { name: "Dhuhr", time: "12:15 PM", active: false },
-    { name: "Asr", time: "04:15 PM", active: true }, // Current Next Prayer
-    { name: "Maghrib", time: "06:30 PM", active: false },
-    { name: "Isha", time: "07:45 PM", active: false },
-  ];
+  const [prayerTimes, setPrayerTimes] = useState<Prayer[]>([]);
+  const [locationName, setLocationName] = useState("Locating...");
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [currentPrayer, setCurrentPrayer] = useState<string>("None");
+  const [nextPrayer, setNextPrayer] = useState<{ name: string; time: Date | null }>({
+    name: "Loading...",
+    time: null,
+  });
+  const [remainingTime, setRemainingTime] = useState("00:00:00");
+
+  const [currentDateStr, setCurrentDateStr] = useState("");
+
+  const updateCurrentDateStr = () => {
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    };
+    setCurrentDateStr(new Date().toLocaleDateString("en-GB", options));
+  };
+
+  const fetchPrayerTimes = async () => {
+    try {
+      setIsLoading(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Denied", "Please allow location access to fetch accurate prayer times.");
+        setIsLoading(false);
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = location.coords;
+
+      try {
+        const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (geocode.length > 0) {
+          const place = geocode[0];
+          setLocationName(`${place.city || place.region || "Unknown"}, ${place.country}`);
+        }
+      } catch (geocodeError) {
+        setLocationName("Location found"); // Fallback if reverse geocode fails
+      }
+
+      const today = new Date();
+      const dateStr = getFormattedDateForApi(today);
+      const cacheKey = `prayers_${dateStr}_${latitude.toFixed(2)}_${longitude.toFixed(2)}`;
+
+      let timings: any = null;
+      let tomorrowFajrTimeStr: string | null = null;
+
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        const data = JSON.parse(cached);
+        timings = data.timings;
+        tomorrowFajrTimeStr = data.tomorrowFajr;
+      } else {
+        // Fetch Today
+        const res = await fetch(
+          `https://api.aladhan.com/v1/timings/${dateStr}?latitude=${latitude}&longitude=${longitude}&method=2`
+        );
+        const json = await res.json();
+
+        // Fetch Tomorrow (to get Isha end time)
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowDateStr = getFormattedDateForApi(tomorrow);
+        const tomorrowRes = await fetch(
+          `https://api.aladhan.com/v1/timings/${tomorrowDateStr}?latitude=${latitude}&longitude=${longitude}&method=2`
+        );
+        const tomorrowJson = await tomorrowRes.json();
+
+        if (json.code === 200 && tomorrowJson.code === 200) {
+          timings = json.data.timings;
+          tomorrowFajrTimeStr = tomorrowJson.data.timings.Fajr;
+          await AsyncStorage.setItem(
+            cacheKey,
+            JSON.stringify({ timings, tomorrowFajr: tomorrowFajrTimeStr })
+          );
+        }
+      }
+
+      if (timings && tomorrowFajrTimeStr) {
+        processPrayerData(timings, tomorrowFajrTimeStr, today);
+      }
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Fetch error", error);
+      Alert.alert("Offline", "Unable to load prayer times. Check your internet connection.");
+      setIsLoading(false);
+    }
+  };
+
+  const processPrayerData = (timings: any, tomorrowFajrStr: string, baseDate: Date) => {
+    const formatClean = (t: string) => formatTime12Hour(t.split(" ")[0]);
+
+    const pData: Prayer[] = [
+      {
+        name: "Fajr",
+        startTime: formatClean(timings.Fajr),
+        endTime: formatClean(timings.Sunrise),
+        active: false,
+        rawTime: parseTimeToDate(timings.Fajr, baseDate),
+      },
+      {
+        name: "Dhuhr",
+        startTime: formatClean(timings.Dhuhr),
+        endTime: formatClean(timings.Asr),
+        active: false,
+        rawTime: parseTimeToDate(timings.Dhuhr, baseDate),
+      },
+      {
+        name: "Asr",
+        startTime: formatClean(timings.Asr),
+        endTime: formatClean(timings.Maghrib),
+        active: false,
+        rawTime: parseTimeToDate(timings.Asr, baseDate),
+      },
+      {
+        name: "Maghrib",
+        startTime: formatClean(timings.Maghrib),
+        endTime: formatClean(timings.Isha),
+        active: false,
+        rawTime: parseTimeToDate(timings.Maghrib, baseDate),
+      },
+      {
+        name: "Isha",
+        startTime: formatClean(timings.Isha),
+        endTime: `Next Day ${formatClean(tomorrowFajrStr)}`,
+        active: false,
+        rawTime: parseTimeToDate(timings.Isha, baseDate),
+      },
+    ];
+
+    setPrayerTimes(pData);
+    updatePrayerStatus(pData);
+  };
+
+  const updatePrayerStatus = (prayers: Prayer[]) => {
+    if (!prayers || prayers.length === 0) return;
+
+    const now = new Date();
+    let current = "Isha"; // default if before Fajr or after Isha
+    let next = { name: "Fajr", time: new Date() };
+
+    let foundNext = false;
+    for (let i = 0; i < prayers.length; i++) {
+      if (now < prayers[i].rawTime) {
+        next = { name: prayers[i].name, time: prayers[i].rawTime };
+        current = i === 0 ? "Isha" : prayers[i - 1].name;
+        foundNext = true;
+        break;
+      }
+    }
+
+    if (!foundNext) {
+      current = "Isha";
+      const tomorrowFajrTime = new Date(prayers[0].rawTime);
+      tomorrowFajrTime.setDate(tomorrowFajrTime.getDate() + 1);
+      next = { name: "Fajr", time: tomorrowFajrTime };
+    }
+
+    const updatedPrayers = prayers.map((p) => ({
+      ...p,
+      active: p.name === current,
+    }));
+
+    setPrayerTimes(updatedPrayers);
+    setCurrentPrayer(current);
+    setNextPrayer(next);
+  };
+
+  const calculateRemainingTime = () => {
+    if (!nextPrayer.time) return;
+
+    const now = new Date();
+    const diff = nextPrayer.time.getTime() - now.getTime();
+
+    if (diff <= 0) {
+      updatePrayerStatus(prayerTimes);
+      return;
+    }
+
+    const totalSecs = Math.floor(diff / 1000);
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+
+    setRemainingTime(
+      `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+    );
+  };
+
+  useEffect(() => {
+    updateCurrentDateStr();
+    fetchPrayerTimes();
+  }, []);
+
+  // Update countdown every second and check midnight
+  useEffect(() => {
+    if (prayerTimes.length === 0) return;
+
+    const timer = setInterval(() => {
+      calculateRemainingTime();
+
+      const options: Intl.DateTimeFormatOptions = {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      };
+      const todayFormatted = new Date().toLocaleDateString("en-GB", options);
+
+      if (currentDateStr && todayFormatted !== currentDateStr) {
+        updateCurrentDateStr();
+        fetchPrayerTimes();
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [nextPrayer, prayerTimes, currentDateStr]);
+
+  if (isLoading && prayerTimes.length === 0) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <View style={styles.loadingCard}>
+          <ActivityIndicator size="large" color="#10B981" />
+
+          <Text style={styles.loadingTitle}>
+            Fetching Prayer Times
+          </Text>
+
+          <Text style={styles.loadingSubtitle}>
+            Please wait while we prepare today's prayer schedule.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -30,23 +310,29 @@ export default function Home() {
           <View>
             <Text style={styles.locationText}>
               <MaterialCommunityIcons name="map-marker-outline" size={16} color="#34D399" />
-              {" "}Dhaka, Bangladesh
+              {" "}
+              {locationName}
             </Text>
-            <Text style={styles.dateText}>Friday, 31 July 2026</Text>
+            <Text style={styles.dateText}>{currentDateStr}</Text>
           </View>
         </View>
 
         {/* Main Prayer Hero Card */}
         <View style={styles.heroCard}>
           <View style={styles.heroHeader}>
-            <Text style={styles.nextPrayerLabel}>NEXT PRAYER</Text>
+            <Text style={styles.nextPrayerLabel}>
+              CURRENT PRAYER: {currentPrayer.toUpperCase()}
+            </Text>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>In 01h 15m</Text>
+              <Text style={styles.badgeText}>{remainingTime} Re:</Text>
             </View>
           </View>
 
-          <Text style={styles.prayerTitle}>Asr</Text>
-          <Text style={styles.prayerTimeText}>04:15 PM</Text>
+          <Text style={[styles.nextPrayerLabel, { marginTop: 12 }]}>NEXT PRAYER</Text>
+          <Text style={[styles.prayerTitle, { marginTop: 2 }]}>{nextPrayer.name}</Text>
+          <Text style={styles.prayerTimeText}>
+            {nextPrayer.time ? formatTimeDate(nextPrayer.time) : ""}
+          </Text>
 
           <View style={styles.heroFooter}>
             <MaterialCommunityIcons name="compass-rose" size={20} color="#34D399" />
@@ -68,11 +354,7 @@ export default function Home() {
             >
               <View style={styles.prayerNameGroup}>
                 <MaterialCommunityIcons
-                  name={
-                    item.name === "Sunrise"
-                      ? "weather-sunset-up"
-                      : "clock-time-four-outline"
-                  }
+                  name="clock-time-four-outline"
                   size={20}
                   color={item.active ? "#34D399" : "#64748B"}
                 />
@@ -86,14 +368,25 @@ export default function Home() {
                 </Text>
               </View>
 
-              <Text
-                style={[
-                  styles.prayerTime,
-                  item.active && styles.activePrayerTime,
-                ]}
-              >
-                {item.time}
-              </Text>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text
+                  style={[
+                    styles.prayerTime,
+                    item.active && styles.activePrayerTime,
+                  ]}
+                >
+                  Start: {item.startTime}
+                </Text>
+                <Text
+                  style={[
+                    styles.prayerTime,
+                    item.active && styles.activePrayerTime,
+                    { fontSize: 13, marginTop: 2 },
+                  ]}
+                >
+                  End: {item.endTime}
+                </Text>
+              </View>
             </View>
           ))}
         </View>
@@ -145,6 +438,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   heroHeader: {
+    width: "100%",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -238,4 +532,45 @@ const styles = StyleSheet.create({
     color: "#34D399",
     fontWeight: "700",
   },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+  },
+
+  loadingCard: {
+    width: "85%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    alignItems: "center",
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+
+  loadingTitle: {
+    marginTop: 20,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+  },
+
+  loadingSubtitle: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 22,
+  },
+
 });
