@@ -187,7 +187,7 @@ export default function Home() {
       {
         name: "Isha",
         startTime: formatClean(timings.Isha),
-        endTime: `Next Day ${formatClean(tomorrowFajrStr)}`,
+        endTime: `${formatClean(tomorrowFajrStr)}`,
         active: false,
         rawTime: parseTimeToDate(timings.Isha, baseDate),
       },
