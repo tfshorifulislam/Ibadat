@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, View, Pressable } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { usePathname, router } from "expo-router";
 
 interface BottomMenuProps {
   activeTab?: string;
@@ -13,10 +14,28 @@ const NAV_ITEMS = [
   { id: "explore", icon: "compass-outline", activeIcon: "compass" },
 ];
 
-const BottomMenu = ({ activeTab = "home", onTabPress }: BottomMenuProps) => {
-  // #003332 ডার্ক ব্যাকগ্রাউন্ডের সাথে মানানসই কালার:
-  const activeColor = "#34D399";   // Bright Emerald (ডার্ক ব্যাকগ্রাউন্ডে স্পষ্ট ফুটে উঠবে)
-  const inactiveColor = "#64748B"; // Soft Slate Gray
+const BottomMenu = ({ activeTab: propActiveTab, onTabPress }: BottomMenuProps) => {
+  const pathname = usePathname();
+  
+  let currentTab = "home";
+  if (pathname.startsWith("/book")) currentTab = "book";
+  else if (pathname.startsWith("/explore")) currentTab = "explore";
+  
+  const activeTab = propActiveTab || currentTab;
+  
+  const activeColor = "#34D399";   
+  const inactiveColor = "#64748B";
+
+  const handlePress = (id: string) => {
+    if (onTabPress) {
+      onTabPress(id);
+      return;
+    }
+    
+    if (id === "home") router.replace("/");
+    else if (id === "book") router.replace("/book");
+    else if (id === "explore") router.replace("/explore");
+  };
 
   return (
     <View style={styles.wrapper}>
@@ -27,7 +46,7 @@ const BottomMenu = ({ activeTab = "home", onTabPress }: BottomMenuProps) => {
           return (
             <Pressable
               key={item.id}
-              onPress={() => onTabPress && onTabPress(item.id)}
+              onPress={() => handlePress(item.id)}
               style={({ pressed }) => [
                 styles.item,
                 pressed && styles.pressed,
