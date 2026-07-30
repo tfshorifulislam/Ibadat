@@ -8,9 +8,9 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
+          contentStyle: { backgroundColor: "#003332" },
         }}
       />
-
 
       <BottomMenu />
     </View>
@@ -20,5 +20,6 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#003332",
   },
 });

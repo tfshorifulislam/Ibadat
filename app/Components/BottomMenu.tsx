@@ -64,11 +64,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     alignItems: "center",
     width: "100%",
-    backgroundColor: "#003332", // চাওয়া ব্যাকগ্রাউন্ড কালার
+    backgroundColor: "#003332",
     paddingVertical: 20,
     paddingHorizontal: 8,
 
-    // ডার্ক মোডের জন্য হালকা শ্যাডো
     shadowColor: "#000000",
     shadowOffset: {
       width: 0,
