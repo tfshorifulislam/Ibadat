@@ -47,7 +47,9 @@ export default function QiblaCompass() {
 
   // Smooth rotation logic
   const animatedHeading = useRef(new Animated.Value(0)).current;
+  const animatedQibla = useRef(new Animated.Value(0)).current;
   const _lastHeading = useRef(0);
+  const _lastQibla = useRef(0);
 
   useEffect(() => {
     let sub: any;
@@ -72,27 +74,46 @@ export default function QiblaCompass() {
           return;
         }
 
-        // Reduced update interval for more stability
         Magnetometer.setUpdateInterval(100);
         sub = Magnetometer.addListener((data) => {
-          // Use -data.x to correct the East/West flip
-          let angle = Math.atan2(-data.x, data.y) * (180 / Math.PI);
-          if (angle < 0) angle += 360;
+          // Compass heading calculation
+          let angle = Math.atan2(data.x, data.y) * (180 / Math.PI);
+          let currentHeading = -angle; // Fix correct clockwise orientation
+          if (currentHeading < 0) currentHeading += 360;
           
-          setHeading(angle);
+          setHeading(currentHeading);
 
-          // Calculate shortest path for smooth interpolation (prevents 360 -> 0 jumping)
-          let diff = angle - (_lastHeading.current % 360);
-          if (diff > 180) diff -= 360;
-          else if (diff < -180) diff += 360;
+          // 1. Smooth dial rotation interpolation
+          let diffHeading = currentHeading - (_lastHeading.current % 360);
+          if (diffHeading > 180) diffHeading -= 360;
+          else if (diffHeading < -180) diffHeading += 360;
           
-          _lastHeading.current += diff;
+          _lastHeading.current += diffHeading;
 
-          Animated.timing(animatedHeading, {
-            toValue: _lastHeading.current,
-            duration: 150,
-            useNativeDriver: true,
-          }).start();
+          // 2. Relative Qibla angle calculation (Formula provided)
+          let relativeQiblaAngle = bearing - currentHeading;
+          if (relativeQiblaAngle > 180) relativeQiblaAngle -= 360;
+          else if (relativeQiblaAngle < -180) relativeQiblaAngle += 360;
+
+          // Smooth Qibla arrow interpolation
+          let diffQibla = relativeQiblaAngle - (_lastQibla.current % 360);
+          if (diffQibla > 180) diffQibla -= 360;
+          else if (diffQibla < -180) diffQibla += 360;
+          
+          _lastQibla.current += diffQibla;
+
+          Animated.parallel([
+            Animated.timing(animatedHeading, {
+              toValue: _lastHeading.current,
+              duration: 150,
+              useNativeDriver: true,
+            }),
+            Animated.timing(animatedQibla, {
+              toValue: _lastQibla.current,
+              duration: 150,
+              useNativeDriver: true,
+            })
+          ]).start();
         });
 
         setLoading(false);
@@ -152,9 +173,14 @@ export default function QiblaCompass() {
 
   const isFacingQibla = Math.abs(heading - qiblaBearing) < 3 || Math.abs(heading - qiblaBearing) > 357;
 
-  const rotateInterpolation = animatedHeading.interpolate({
+  const rotateDialInterpolation = animatedHeading.interpolate({
     inputRange: [-360, 0, 360],
     outputRange: ['360deg', '0deg', '-360deg'] // Reverses angle for compass dial logic
+  });
+
+  const rotateQiblaInterpolation = animatedQibla.interpolate({
+    inputRange: [-360, 0, 360],
+    outputRange: ['-360deg', '0deg', '360deg'] // Rotates dynamically relative to phone
   });
 
   return (
@@ -169,8 +195,9 @@ export default function QiblaCompass() {
       {/* Compass Area */}
       <View style={styles.compassWrapper}>
         <View style={[styles.compassOuter, isFacingQibla && styles.compassOuterActive]}>
-          <Animated.View style={[styles.compassInner, { transform: [{ rotate: rotateInterpolation }] }]}>
-            
+          
+          {/* Rotating Compass Dial */}
+          <Animated.View style={[styles.compassInner, { transform: [{ rotate: rotateDialInterpolation }] }]}>
             {/* Degree Marks */}
             {renderDegreeMarks()}
 
@@ -179,27 +206,27 @@ export default function QiblaCompass() {
             <Text style={[styles.directionText, styles.east]}>E</Text>
             <Text style={[styles.directionText, styles.south]}>S</Text>
             <Text style={[styles.directionText, styles.west]}>W</Text>
-
-            {/* Qibla Indicator */}
-            <View 
-              style={[
-                styles.qiblaIndicatorContainer, 
-                { transform: [{ rotate: `${qiblaBearing}deg` }] }
-              ]}
-            >
-              <View style={styles.qiblaArrowWrapper}>
-                <Text style={styles.kaabaText}>🕋</Text>
-                <View style={styles.qiblaArrow} />
-                <View style={styles.qiblaLine} />
-              </View>
-            </View>
-
-            {/* Center Pivot */}
-            <View style={styles.centerDotOuter}>
-              <View style={styles.centerDotInner} />
-            </View>
-
           </Animated.View>
+
+          {/* Qibla Indicator (Independent of dial, rotates based on relative heading) */}
+          <Animated.View 
+            style={[
+              styles.qiblaIndicatorContainer, 
+              { transform: [{ rotate: rotateQiblaInterpolation }] }
+            ]}
+          >
+            <View style={styles.qiblaArrowWrapper}>
+              <Text style={styles.kaabaText}>🕋</Text>
+              <View style={styles.qiblaArrow} />
+              <View style={styles.qiblaLine} />
+            </View>
+          </Animated.View>
+
+          {/* Center Pivot */}
+          <View style={styles.centerDotOuter}>
+            <View style={styles.centerDotInner} />
+          </View>
+
         </View>
       </View>
 
